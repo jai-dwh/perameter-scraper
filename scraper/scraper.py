@@ -18,8 +18,13 @@ Pipeline:
 import time
 import random
 import json
+import os
 import re
+import shutil
+import tempfile
 from datetime import datetime
+from pathlib import Path
+from urllib.parse import urlencode
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -29,24 +34,35 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.driver_cache import DriverCacheManager
 from selenium.webdriver.chrome.service import Service
-
 from bs4 import BeautifulSoup
 from tabulate import tabulate
+from config.settings import BROWSER_HEADLESS
+
+
+LOG_HTML_DIR = Path("logs/html")
+LOG_SCREENSHOT_DIR = Path("logs/screenshots")
+LOG_BROWSER_DIR = Path("logs/browser")
+LOG_BROWSER_TMP_DIR = LOG_BROWSER_DIR / "tmp"
+LOG_BROWSER_RUNTIME_DIR = LOG_BROWSER_DIR / "runtime"
+WEBDRIVER_CACHE_DIR = Path(".wdm")
+
+
+def _safe_name(text):
+    return re.sub(r"[^a-zA-Z0-9]+", "_", text).strip("_").lower()[:80] or "ai_mode"
 
 
 class GoogleAIModeScraper:
     """Direct Google AI Mode scraper using the AI Mode URL"""
 
-    # Google AI Mode URL (goes directly to AI Mode interface)
-    AI_MODE_URL = (
-        "https://google.com/search?q=&sourceid=chrome&ie=UTF-8&udm=50&aep=48&cud=0&qsubts=1764494340788"
-    )
+    AI_MODE_URL = "https://www.google.com/search"
 
     def __init__(self, headless=True, verbose=True):
         self.headless = headless
         self.verbose = verbose
         self.driver = None
+        self.profile_dir = None
         self.setup_driver()
 
     def log(self, message, level="INFO"):
@@ -59,21 +75,36 @@ class GoogleAIModeScraper:
         chrome_options = Options()
 
         if self.headless:
-            # NEW: Use newer headless mode which is harder to detect
+            LOG_BROWSER_DIR.mkdir(parents=True, exist_ok=True)
+            self.profile_dir = Path(
+                tempfile.mkdtemp(prefix="chrome-profile-", dir=str(LOG_BROWSER_DIR))
+            )
             chrome_options.add_argument("--headless=new")
-            # CRITICAL: These make headless look more like a real browser
             chrome_options.add_argument("--disable-gpu")
             chrome_options.add_argument("--disable-software-rasterizer")
+            chrome_options.add_argument("--disable-accelerated-video-decode")
+            chrome_options.add_argument(
+                "--disable-features=VaapiVideoDecoder,VaapiIgnoreDriverChecks,UseChromeOSDirectVideoDecoder"
+            )
             chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument(f"--user-data-dir={self.profile_dir}")
+            chrome_options.add_argument(f"--disk-cache-dir={LOG_BROWSER_DIR / 'cache'}")
 
-        # Enhanced stealth options
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_argument("--disable-extensions")
+        chrome_options.add_argument("--disable-infobars")
+        chrome_options.add_argument("--disable-popup-blocking")
+        chrome_options.add_argument("--no-first-run")
         chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-setuid-sandbox")
+        chrome_options.add_argument("--remote-debugging-pipe")
         chrome_options.add_argument("--window-size=1920,1080")
         chrome_options.add_argument("--start-maximized")
-
-        # Language settings (important!)
         chrome_options.add_argument("--lang=en-US")
+        chrome_options.add_argument(
+            "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+        )
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option("useAutomationExtension", False)
         
@@ -87,19 +118,35 @@ class GoogleAIModeScraper:
         )
 
         try:
-            service = Service(ChromeDriverManager().install())
-            print("Driver path:", service.path)
-            # Add service args for better headless performance
-            service.log_path = "NUL" if self.headless else None
-            
+            WEBDRIVER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            LOG_BROWSER_TMP_DIR.mkdir(parents=True, exist_ok=True)
+            LOG_BROWSER_RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+            cache_manager = DriverCacheManager(root_dir=str(WEBDRIVER_CACHE_DIR))
+            service_env = os.environ.copy()
+            service_env["TMPDIR"] = str(LOG_BROWSER_TMP_DIR.resolve())
+            service_env["XDG_RUNTIME_DIR"] = str(LOG_BROWSER_RUNTIME_DIR.resolve())
+            service = Service(
+                ChromeDriverManager(cache_manager=cache_manager).install(),
+                env=service_env,
+            )
+            self.log(f"ChromeDriver path: {service.path}")
+
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            print("Driver OK")
+            self.driver.set_page_load_timeout(60)
+            self.driver.set_window_size(1920, 1080)
 
-            print(self.driver.current_url)
-
-            print("Session:", self.driver.session_id)
-
-            # ENHANCED stealth JavaScript - more properties to hide automation
+            self.driver.execute_cdp_cmd(
+                "Network.setUserAgentOverride",
+                {
+                    "userAgent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/125.0.0.0 Safari/537.36"
+                    ),
+                    "acceptLanguage": "en-US,en;q=0.9",
+                    "platform": "Win32",
+                },
+            )
             self.driver.execute_cdp_cmd(
                 "Page.addScriptToEvaluateOnNewDocument",
                 {
@@ -107,13 +154,15 @@ class GoogleAIModeScraper:
                         Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
                         Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
                         Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
+                        Object.defineProperty(navigator, 'platform', {get: () => 'Win32'});
                         
-                        // Fix chrome detection
                         window.chrome = {
                             runtime: {},
+                            loadTimes: function() {},
+                            csi: function() {},
+                            app: {},
                         };
                         
-                        // Permissions fix
                         const originalQuery = window.navigator.permissions.query;
                         window.navigator.permissions.query = (parameters) => (
                             parameters.name === 'notifications' ?
@@ -134,32 +183,182 @@ class GoogleAIModeScraper:
         delay = random.uniform(min_sec, max_sec)
         time.sleep(delay)
 
+    def _ai_mode_url(self):
+        params = {
+            "q": "",
+            "sourceid": "chrome",
+            "ie": "UTF-8",
+            "udm": "50",
+            "aep": "48",
+            "cud": "0",
+            "qsubts": str(int(time.time() * 1000)),
+        }
+        return f"{self.AI_MODE_URL}?{urlencode(params)}"
+
+    def _write_debug_artifacts(self, question, reason):
+        LOG_HTML_DIR.mkdir(parents=True, exist_ok=True)
+        LOG_SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
+        stem = f"{_safe_name(question)}_{reason}"
+        html_path = LOG_HTML_DIR / f"{stem}.html"
+        screenshot_path = LOG_SCREENSHOT_DIR / f"{stem}.png"
+
+        html_path.write_text(self.driver.page_source, encoding="utf-8")
+        try:
+            self.driver.save_screenshot(str(screenshot_path))
+        except Exception:
+            screenshot_path = None
+
+        return html_path, screenshot_path
+
     def human_type(self, element, text):
         """Type text with human-like variation"""
         for char in text:
             element.send_keys(char)
             time.sleep(random.uniform(0.05, 0.15))
 
+    def _find_search_input(self, selectors):
+        for selector in selectors:
+            try:
+                WebDriverWait(self.driver, 15).until(
+                    EC.presence_of_element_located((By.XPATH, selector))
+                )
+                elements = self.driver.find_elements(By.XPATH, selector)
+                candidates = []
+                for element in elements:
+                    try:
+                        rect = element.rect
+                        if (
+                            element.is_displayed()
+                            and element.is_enabled()
+                            and rect.get("width", 0) > 0
+                            and rect.get("height", 0) > 0
+                        ):
+                            candidates.append(element)
+                    except Exception:
+                        continue
+
+                if candidates:
+                    self.log(f"✓ Found input box with selector: {selector[:50]}...")
+                    return max(candidates, key=lambda el: el.rect.get("y", 0))
+            except TimeoutException:
+                continue
+
+        return None
+
+    def _set_input_value_with_js(self, element, text):
+        self.driver.execute_script(
+            """
+            const el = arguments[0];
+            const value = arguments[1];
+            const proto = Object.getPrototypeOf(el);
+            const descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
+
+            if (descriptor && descriptor.set) {
+                descriptor.set.call(el, value);
+            } else if ('value' in el) {
+                el.value = value;
+            } else {
+                el.innerText = value;
+            }
+
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            """,
+            element,
+            text,
+        )
+
+    def _insert_text_with_cdp(self, element, text):
+        self.driver.execute_script("arguments[0].focus();", element)
+        self.driver.execute_cdp_cmd("Input.insertText", {"text": text})
+
+    def _focus_and_enter_question(self, element, question):
+        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+        self.human_delay(0.5, 1)
+
+        try:
+            element.click()
+        except Exception:
+            self.driver.execute_script("arguments[0].click();", element)
+        self.human_delay(0.3, 0.5)
+
+        is_contenteditable = (
+            (element.get_attribute("contenteditable") or "").lower() == "true"
+        )
+        if is_contenteditable:
+            self.driver.execute_script(
+                "arguments[0].innerText = ''; arguments[0].dispatchEvent(new Event('input', {bubbles: true}));",
+                element,
+            )
+        else:
+            try:
+                element.clear()
+            except Exception:
+                element.send_keys(Keys.CONTROL, "a")
+                element.send_keys(Keys.BACKSPACE)
+
+        self.human_delay(0.3, 0.5)
+        try:
+            self.human_type(element, question)
+        except Exception:
+            self.log("Falling back to Chrome DevTools text insertion", "WARNING")
+            try:
+                self._insert_text_with_cdp(element, question)
+            except Exception:
+                self.log("Falling back to JavaScript input injection", "WARNING")
+                self._set_input_value_with_js(element, question)
+
+    def _submit_question(self, element):
+        try:
+            element.send_keys(Keys.RETURN)
+            return
+        except Exception:
+            self.log("Return key submit failed; trying DevTools Enter", "WARNING")
+
+        try:
+            self.driver.execute_cdp_cmd(
+                "Input.dispatchKeyEvent",
+                {"type": "keyDown", "key": "Enter", "code": "Enter", "windowsVirtualKeyCode": 13},
+            )
+            self.driver.execute_cdp_cmd(
+                "Input.dispatchKeyEvent",
+                {"type": "keyUp", "key": "Enter", "code": "Enter", "windowsVirtualKeyCode": 13},
+            )
+            return
+        except Exception:
+            self.log("DevTools Enter failed; trying send button", "WARNING")
+
+        send_selectors = [
+            "//button[@aria-label='Send']",
+            "//button[contains(@aria-label, 'Send')]",
+            "//*[@role='button' and contains(@aria-label, 'Send')]",
+        ]
+        for selector in send_selectors:
+            buttons = self.driver.find_elements(By.XPATH, selector)
+            visible_buttons = []
+            for button in buttons:
+                try:
+                    if button.is_displayed() and button.is_enabled():
+                        visible_buttons.append(button)
+                except Exception:
+                    continue
+            if visible_buttons:
+                self.driver.execute_script("arguments[0].click();", visible_buttons[-1])
+                return
+
+        raise RuntimeError("Could not submit AI Mode question")
+
     def ask_ai_mode(self, question):
         """Ask question directly in Google AI Mode"""
         try:
             self.log(f"🤖 Asking AI Mode: '{question}'")
-            print("STEP 1")
-
             # Navigate directly to AI Mode page
-            # self.driver.get(self.AI_MODE_URL)
-            self.driver.get("https://www.google.com")
-            print("STEP 2")
-            # INCREASED wait time for headless mode
-            print("STEP 2")
+            self.driver.get(self._ai_mode_url())
             self.human_delay(4, 6)
 
-            # Handle cookie consent
-            print("STEP 3")
             self._handle_cookies()
 
             # EXTENDED wait before looking for input
-            print("STEP 4")
             self.human_delay(2, 3)
 
             # Find the "Ask anything" input box
@@ -170,110 +369,97 @@ class GoogleAIModeScraper:
                 "//textarea[contains(@aria-label, 'Search')]",
                 "//input[@name='q']",
                 "//div[@role='combobox']//textarea",
+                "//div[@role='combobox']//input",
+                "//*[@contenteditable='true']",
                 "//textarea",  # Broader fallback
             ]
 
-            search_input = None
-            for selector in input_selectors:
-                try:
-                    search_input = WebDriverWait(self.driver, 15).until(  # Increased timeout
-                        EC.presence_of_element_located((By.XPATH, selector))
-                    )
-                    # Make sure element is actually visible and interactable
-                    WebDriverWait(self.driver, 5).until(
-                        EC.element_to_be_clickable((By.XPATH, selector))
-                    )
-                    self.log(
-                        f"✓ Found input box with selector: {selector[:50]}..."
-                    )
-                    break
-                except TimeoutException:
-                    continue
+            search_input = self._find_search_input(input_selectors)
 
             if not search_input:
-                # Take screenshot for debugging (works in headless too!)
-                if self.headless:
-                    self.driver.save_screenshot("ai_mode_debug.png")
-                    self.log("Screenshot saved to ai_mode_debug.png for debugging")
-                
-                # Save page for debugging
-                with open("ai_mode_page.html", "w", encoding="utf-8") as f:
-                    f.write(self.driver.page_source)
+                html_path, screenshot_path = self._write_debug_artifacts(
+                    question, "no_input"
+                )
+                self.log(f"Saved debug HTML to {html_path}", "WARNING")
+                if screenshot_path:
+                    self.log(f"Saved debug screenshot to {screenshot_path}", "WARNING")
                 return {
                     "question": question,
                     "answer": None,
                     "tables": [],
                     "raw_html": None,
                     "success": False,
-                    "error": "Could not find AI Mode input box. Page saved to ai_mode_page.html",
+                    "error": f"Could not find AI Mode input box. Page saved to {html_path}",
                     "format": None,
                 }
 
-            # Scroll element into view (important for headless)
-            self.driver.execute_script("arguments[0].scrollIntoView(true);", search_input)
-            self.human_delay(0.5, 1)
-
-            # Click to focus
-            search_input.click()
-            self.human_delay(0.3, 0.5)
-
-            # Clear and type the question
-            search_input.clear()
-            self.human_delay(0.3, 0.5)
-            self.human_type(search_input, question)
+            self._focus_and_enter_question(search_input, question)
             self.human_delay(0.5, 1)
 
             # Submit the question
             self.log("Submitting question...")
-            search_input.send_keys(Keys.RETURN)
+            self._submit_question(search_input)
 
-            # INCREASED wait for AI response in headless
             self.log("Waiting for AI response...")
-            self.human_delay(6, 10)
+            deadline = time.time() + 70
+            ai_response_html = None
+            last_answer = ""
+            last_tables = []
 
-            # Extract the AI response (HTML)
-            ai_response_html = self._extract_ai_response()
+            while time.time() < deadline:
+                self.human_delay(2, 3)
+                ai_response_html = self._extract_ai_response()
+                if not ai_response_html:
+                    continue
 
-            if ai_response_html:
                 full_text, answer_only, tables_md = self._clean_html_and_extract_answer(
                     ai_response_html, question
                 )
-
-                # Base answer: answer-only paragraph or full text fallback
                 answer_final = answer_only or full_text
+                answer_final = self._sanitize_answer(answer_final)
+                last_answer = answer_final
+                last_tables = tables_md
 
-                return {
-                    "question": question,
-                    "answer": answer_final,
-                    "tables": tables_md,  # list of markdown tables
-                    "raw_html": ai_response_html,
-                    "success": True,
-                    "timestamp": datetime.now().isoformat(),
-                    "format": "text",
-                }
-            else:
-                # Save page and screenshot for debugging
-                if self.headless:
-                    self.driver.save_screenshot("ai_mode_no_response.png")
-                with open("ai_mode_page.html", "w", encoding="utf-8") as f:
-                    f.write(self.driver.page_source)
+                if self._is_meaningful_answer(answer_final):
+                    return {
+                        "question": question,
+                        "answer": answer_final,
+                        "tables": tables_md,  # list of markdown tables
+                        "raw_html": ai_response_html,
+                        "success": True,
+                        "timestamp": datetime.now().isoformat(),
+                        "format": "text",
+                    }
+
+                self.log("AI response shell found, waiting for answer text...")
+
+            if not ai_response_html or not self._is_meaningful_answer(last_answer):
+                html_path, screenshot_path = self._write_debug_artifacts(
+                    question, "no_response"
+                )
+                self.log(f"Saved debug HTML to {html_path}", "WARNING")
+                if screenshot_path:
+                    self.log(f"Saved debug screenshot to {screenshot_path}", "WARNING")
                 return {
                     "question": question,
                     "answer": None,
                     "tables": [],
                     "raw_html": None,
                     "success": False,
-                    "error": "No AI response found. Page saved to ai_mode_page.html",
+                    "error": f"No usable AI response found. Page saved to {html_path}",
                     "format": None,
                 }
 
         except Exception as e:
             self.log(f"✗ Error asking AI Mode: {e}", "ERROR")
-            # Take screenshot on error
             try:
-                if self.headless:
-                    self.driver.save_screenshot("ai_mode_error.png")
-            except:
+                html_path, screenshot_path = self._write_debug_artifacts(
+                    question, "error"
+                )
+                self.log(f"Saved debug HTML to {html_path}", "WARNING")
+                if screenshot_path:
+                    self.log(f"Saved debug screenshot to {screenshot_path}", "WARNING")
+            except Exception:
                 pass
             return {
                 "question": question,
@@ -365,6 +551,31 @@ class GoogleAIModeScraper:
         self.log("✗ No AI response found", "WARNING")
         return None
 
+    def _is_meaningful_answer(self, answer):
+        if not answer:
+            return False
+
+        normalized = re.sub(r"\s+", " ", answer).strip().lower()
+        if len(normalized) < 80:
+            return False
+
+        ui_phrases = [
+            "quick settings sign in",
+            "ai mode all images videos news more shopping maps",
+            "google apps sign in",
+            "loading",
+        ]
+        if any(phrase in normalized[:300] for phrase in ui_phrases):
+            return False
+
+        return True
+
+    def _sanitize_answer(self, answer):
+        answer = re.sub(r"\b(?:justdial|weddingwire(?:\.in|\.com)?)\b", "", answer, flags=re.IGNORECASE)
+        answer = re.sub(r"\s*\+\d+\b", "", answer)
+        answer = re.sub(r"\bTranscribing\.\.\.", "", answer, flags=re.IGNORECASE)
+        return re.sub(r"\s+", " ", answer).strip()
+
     def _clean_html_and_extract_answer(self, html: str, question: str):
         """
         Convert HTML -> cleaned text, then heuristically extract only
@@ -410,13 +621,21 @@ class GoogleAIModeScraper:
             return ""
 
         q = question.strip().lower()
-        start_idx = 0
+        start_idx = None
 
-        # Find the first line containing the question
         for i, line in enumerate(lines):
-            if q and q in line.lower():
-                start_idx = i
+            if line.strip().lower() == "you said:":
+                start_idx = i + 1
                 break
+
+        if start_idx is None:
+            for i, line in enumerate(lines):
+                if q and q in line.lower():
+                    start_idx = i
+                    break
+
+        if start_idx is None:
+            return ""
 
         # Move forward a bit to skip UI noise like 'Thinking', 'Searching', etc.
         i = start_idx + 1
@@ -463,10 +682,8 @@ class GoogleAIModeScraper:
             "dismiss",
             "my ad centre",
             "turn on your visual search history",
-            "feedback",
             "learn more about these results",
             "about this result",
-            "sources",
             "view all",
             "see more",
         ]
@@ -567,6 +784,20 @@ class GoogleAIModeScraper:
         if self.driver:
             self.driver.quit()
             self.log("Browser closed")
+        if self.profile_dir:
+            shutil.rmtree(self.profile_dir, ignore_errors=True)
+
+
+def ask_google_ai(question, headless=None, verbose=True):
+    """Compatibility wrapper used by the main enrichment flow."""
+    scraper = GoogleAIModeScraper(
+        headless=BROWSER_HEADLESS if headless is None else headless,
+        verbose=verbose,
+    )
+    try:
+        return scraper.ask_ai_mode(question)
+    finally:
+        scraper.close()
 
 
 def print_banner():

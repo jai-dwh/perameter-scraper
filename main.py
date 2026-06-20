@@ -1,12 +1,13 @@
+import json
 import re
 from pathlib import Path
 from scraper.scraper import ask_google_ai
 from scraper.query_builder import build_search_query
-from utils.models import WEDDING_VANUES
-from config.settings import API_KEY
+from models.search_models import SEARCH_MODELS
+from models.json_models import JSON_MODELS
+from config.settings import API_KEY,CATEGORY_NAME
 from utils.logging_config import setup_logging
-
-from config.prompt_template import (
+from enrichment.prompt_template import (
     TEMPLATE_FILLER
 )
 from enrichment.gemini_client import (
@@ -24,13 +25,34 @@ def ensure_dirs():
     Path("logs/html").mkdir(parents=True, exist_ok=True)
     Path("logs/screenshots").mkdir(parents=True, exist_ok=True)
 
-vendors = [
-    {
-        "name": "Rams Event",
-        "city": "Alwar",
-        "state": "Rajasthan"
+
+def clean_enrichment_result(result):
+    invalid_sources = {
+        "overview",
+        "justdial",
+        "justdial.com",
+        "weddingwire",
+        "weddingwire.in",
+        "weddingwire.com",
     }
-]
+    try:
+        data = json.loads(result)
+    except json.JSONDecodeError:
+        return result
+
+    sources = data.get("sources")
+    if isinstance(sources, list):
+        data["sources"] = [
+            source
+            for source in sources
+            if str(source).strip().lower() not in invalid_sources
+        ]
+
+    return json.dumps(data, ensure_ascii=False, indent=2)
+
+vendors = None
+with open("input.json","r") as f:
+    vendors=json.load(f)
 
 gemini = GeminiClient(API_KEY)
 ensure_dirs()
@@ -50,12 +72,19 @@ for vendor in vendors:
     query = build_search_query(
         vendor_name,
         vendor["city"],
-        WEDDING_VANUES
+        SEARCH_MODELS.get(CATEGORY_NAME)
     )
     
     text = ask_google_ai(query)
     print("===========scraped Data===========")
-    print(text)
+    print(text.get("answer") or text.get("error"))
+    if not text.get("success") or not text.get("answer"):
+        logger.error(
+            "Scraping failed for %s: %s",
+            vendor_name,
+            text.get("error", "empty answer"),
+        )
+        continue
 
     prompt = (
         TEMPLATE_FILLER
@@ -63,7 +92,8 @@ for vendor in vendors:
             vendor_name=vendor_name,
             city=vendor["city"],
             state=vendor["state"],
-            content=text["answer"]
+            content=text["answer"],
+            output_format=JSON_MODELS.get(CATEGORY_NAME)
         )
     )
     
@@ -71,6 +101,7 @@ for vendor in vendors:
 
     logger.info("Calling Gemini enrichment for %s", vendor_name)
     result = gemini.enrich(prompt)
+    result = clean_enrichment_result(result)
     logger.info("Gemini enrichment completed for %s (%s chars)", vendor_name, len(result))
 
     output_file = Path("data/output") / f"{vendor_name}.json"

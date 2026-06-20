@@ -1,4 +1,5 @@
 from string import Template
+
 TEMPLATE_FILLER = Template("""
 You are a Vendor Enrichment AI Agent for DreamWeddingHub.
 
@@ -48,27 +49,7 @@ $content
 
 ## Output Format
 
-{
-  "website":"",
-  "instagram":"",
-  "facebook":"",
-  "google_business":"",
-  "phone":"",
-  "email":"",
-  "price_range":"",
-  "rating":"",
-  "review_count":"",
-  "planning_speciality":[],
-  "wedding_types_covered":[],
-  "services_offered":[],
-  "destination_wedding_support":"",
-  "decoration_styles":[],
-  "cities_covered":[],
-  "guest_hospitality_management":[],
-  "entertainment_services":[],
-  "sources":[],
-  "address":""
-}
+$output_format
 
 Return valid JSON only without ```json ```.
 """)
