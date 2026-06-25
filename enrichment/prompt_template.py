@@ -1,6 +1,7 @@
 from string import Template
 
 TEMPLATE_FILLER = Template("""
+/no_think
 You are a Vendor Enrichment AI Agent for DreamWeddingHub.
 
 Your job is to extract structured information about Wedding Planner vendors from content collected from websites, Google Business Profiles, Instagram pages, Facebook pages, directories, and other online sources.

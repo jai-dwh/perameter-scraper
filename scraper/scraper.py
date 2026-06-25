@@ -563,6 +563,9 @@ class GoogleAIModeScraper:
             "quick settings sign in",
             "ai mode all images videos news more shopping maps",
             "google apps sign in",
+            "you said:",
+            "more input options microphone",
+            "stop send send ask about",
             "loading",
         ]
         if any(phrase in normalized[:300] for phrase in ui_phrases):
@@ -571,7 +574,7 @@ class GoogleAIModeScraper:
         return True
 
     def _sanitize_answer(self, answer):
-        answer = re.sub(r"\b(?:justdial|weddingwire(?:\.in|\.com)?)\b", "", answer, flags=re.IGNORECASE)
+        answer = re.sub(r"\b(?:justdial(?:\.com)?|weddingwire(?:\.in|\.com)?)\b", "", answer, flags=re.IGNORECASE)
         answer = re.sub(r"\s*\+\d+\b", "", answer)
         answer = re.sub(r"\bTranscribing\.\.\.", "", answer, flags=re.IGNORECASE)
         return re.sub(r"\s+", " ", answer).strip()

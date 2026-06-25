@@ -12,3 +12,6 @@ wheels/
 .wdm/
 data
 logs
+input.json
+test.txt
+test.py

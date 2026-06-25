@@ -1,21 +1,27 @@
-from google import genai
-
+from openai import OpenAI
+from config.settings import MODEL_BASE_URL
 class GeminiClient:
 
-    def __init__(self, api_key):
-
-        self.client = genai.Client(
-            api_key=api_key
+    def __init__(self, api_key=None):
+        self.client = OpenAI(
+            base_url=MODEL_BASE_URL,
+            api_key="ollama"
         )
 
     def enrich(self, prompt):
 
-        response = (
-            self.client.models
-            .generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
-            )
+        response = self.client.chat.completions.create(
+            model="qwen3:8b",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            extra_body={
+                "think":False,
+                "keep_alive": "30m"
+            }
         )
 
-        return response.text
+        return response.choices[0].message.content

@@ -13,3 +13,4 @@ def _env_bool(name, default=False):
 API_KEY = os.getenv("API_KEY")
 BROWSER_HEADLESS = _env_bool("BROWSER_HEADLESS", default=True)
 CATEGORY_NAME = os.getenv("CATEGORY_NAME")
+MODEL_BASE_URL=os.getenv("MODEL_BASE_URL")
