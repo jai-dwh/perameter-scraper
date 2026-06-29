@@ -1,88 +1,126 @@
+from textwrap import dedent
+
+
 def _normalize_parameters(parameters):
     if isinstance(parameters, (list, tuple)):
-        return ", ".join(
-            str(p).strip()
+        return "\n".join(
+            f"- {str(p).strip()}"
             for p in parameters
             if str(p).strip()
         )
 
-    return " ".join(str(parameters or "").split()).strip(" ,")
+    return f"- {str(parameters).strip()}"
+
 
 def _single_line(text):
     return " ".join(str(text).split())
 
-def build_profile_query(vendor_name, city, category, parameters):
-    parameter_text = _normalize_parameters(parameters)
 
-    prompt = (
-        f"Research {category} vendor: {vendor_name}. "
-        f"Location: {city}, India. "
-        f"For each of the following parameters: {parameter_text}. "
-        "Provide the exact value found, supporting evidence, and source URL for each parameter. "
-        "Prioritize sources in this order: official website, Instagram, Facebook, "
-        "Google Business Profile, news articles, then wedding blogs. "
-        "Exclude JustDial, WeddingWire.in and WeddingWire.com. "
-        "Return 'Not Found' if information is unavailable."
-    )
+def build_search_query(
+    vendor_name,
+    city,
+    category,
+    search_group,
+):
+    """
+    Build a focused Google AI Search prompt.
 
-    return _single_line(prompt)
+    Each call starts a new browser context, therefore every prompt
+    must be completely self-contained.
+    """
 
-def build_services_query(vendor_name, city, category, parameters):
-    parameter_text = _normalize_parameters(parameters)
+    parameters = _normalize_parameters(search_group["fields"])
 
-    prompt = (
-        f"Research {category} vendor: {vendor_name}. "
-        f"Location: {city}, India. "
-        f"For each of the following parameters: {parameter_text}. "
-        "Provide the exact value found, supporting evidence, and source URL for each parameter. "
-        "Search official website, Instagram, Facebook, portfolio pages, event galleries, "
-        "customer reviews and wedding blogs. "
-        "Exclude JustDial, WeddingWire.in and WeddingWire.com. "
-        "Return 'Not Found' if information is unavailable."
-    )
+    description = search_group.get("description", "")
 
-    return _single_line(prompt)
-    parameter_text = _normalize_parameters(parameters)
+    if search_group["name"] == "contact":
 
-    prompt= f"""
-Research {category} vendor "{vendor_name}" based in {city}, India.
+        sources = dedent("""
+        1. Official Website
+        2. Google Business Profile
+        3. Instagram
+        4. Facebook
+        5. Business Directories
+        """)
 
-Search official website, Instagram posts, Facebook posts, portfolio pages,
-event galleries, wedding directories, interviews, blogs and customer reviews.
+    elif search_group["name"] == "pricing":
 
-For EVERY parameter below return:
+        sources = dedent("""
+        1. Official Website
+        2. Pricing Pages
+        3. Instagram Posts
+        4. Facebook Posts
+        5. Wedding Blogs
+        """)
+
+    elif search_group["name"] == "reviews":
+
+        sources = dedent("""
+        1. Google Business Profile
+        2. Official Website
+        3. Facebook
+        4. News Articles
+        """)
+
+    else:
+
+        sources = dedent("""
+        1. Official Website
+        2. Portfolio Pages
+        3. Instagram
+        4. Facebook
+        5. Event Galleries
+        6. Customer Reviews
+        7. Blogs
+        """)
+
+    prompt = f"""
+You are researching a business.
+
+Business Name:
+{vendor_name}
+
+Category:
+{category}
+
+Location:
+{city}, India
+
+Search Objective:
+{description}
+
+Search every parameter independently.
+
+Parameters:
+
+{parameters}
+
+Search Sources (highest priority first):
+
+{sources}
+
+Rules:
+
+1. Search EVERY parameter individually.
+2. Do not stop after finding some information.
+3. Never guess.
+4. Never estimate.
+5. Never infer missing information.
+6. Only use information that can be verified.
+7. If multiple values exist, choose the highest priority source.
+8. If conflicting values exist, report the highest priority source.
+9. If information cannot be verified after checking all sources,
+   return exactly:
+
+Not Found
+
+Return the result exactly in this format:
 
 Parameter:
 Value:
-Supporting Evidence:
 Source URL:
 
-Parameters:
-{parameter_text}
+Repeat for every parameter.
+"""
 
-Rules:
-- Do NOT skip any parameter.
-- If unavailable return exactly "Not Found".
-- Infer services only when clearly supported by evidence.
-- Do not invent information.
-- Use evidence from:
-  * service descriptions
-  * portfolio pages
-  * wedding galleries
-  * social media posts
-  * about sections
-  * customer testimonials
-- When multiple values are found, return a comma-separated list.
-- Include supporting evidence explaining how the value was determined.
-- Prioritize sources in this order:
-  1. Official Website
-  2. Instagram
-  3. Facebook
-  4. Portfolio Pages
-  5. News Articles
-  6. Wedding Blogs
-- Exclude JustDial, WeddingWire.com and WeddingWire.in.
-- Return results in a structured format.
-- Include source URL for every parameter.
-""".strip()
     return _single_line(prompt)

@@ -1,0 +1,43 @@
+{
+  "website": "",
+  "instagram": "https://www.instagram.com/saffronweddingplanner/",
+  "facebook": "https://www.facebook.com/saffronweddingplanner/",
+  "google_business": "",
+  "phone": "9950489988",
+  "email": "mailsaffronplanner@gmail.com",
+  "price_range": "₹10,00,000 Onwards (Planning Fee)",
+  "rating": "",
+  "review_count": "",
+  "planning_speciality": [
+    "Full-service wedding planning"
+  ],
+  "wedding_types_covered": [
+    "Traditional Indian Weddings (including specific pre-wedding and primary events such as Haldi, Mehndi, Sangeet, Varamala, and main Wedding Pheras)"
+  ],
+  "services_offered": [],
+  "destination_wedding_support": "",
+  "decoration_styles": [],
+  "cities_covered": [
+    "Alwar"
+  ],
+  "guest_hospitality_management": "",
+  "entertainment_services": [],
+  "sources": [
+    {
+      "type": "Website",
+      "value": "saffronweddingplanner.com",
+      "source_url": ""
+    },
+    {
+      "type": "Instagram",
+      "value": "@saffronweddingplanner",
+      "source_url": ""
+    },
+    {
+      "type": "Facebook",
+      "value": "https://www.facebook.com/saffronweddingplanner/",
+      "source_url": "Saffron Wedding Planner - Alwar - Facebook"
+    }
+  ],
+  "address": "3rd Floor, Crystal Tower, Nangli Circle, Alwar, India, 301001"
+}

@@ -1,26 +1,49 @@
 SEARCH_MODELS = {
     "WEDDING_PLANNERS": {
-        "profile": [
-            "website",
-            "instagram",
-            "facebook",
-            "google_business",
-            "phone",
-            "email",
-            "Price Range",
-            "Trust Rating",
-            "Google Review Count",
-            "Address",
-        ],
-        "services": [
-            "Planning Speciality",
-            "Wedding Types Covered",
-            "Services Offered",
-            "Destination Wedding Support",
-            "Decoration Styles",
-            "Cities Covered",
-            "Guest & Hospitality Management",
-            "Entertainment Services",
-        ],
+        "search_groups": [
+            {
+                "name": "contact",
+                "description": "Official contact information",
+                "fields": [
+                    "website",
+                    "instagram",
+                    "facebook",
+                    "google_business",
+                    "phone",
+                    "email",
+                    "address",
+                ],
+            },
+            {
+                "name": "reviews",
+                "description": "Ratings and reputation",
+                "fields": [
+                    "rating",
+                    "review_count",
+                    "trust_rating",
+                ],
+            },
+            {
+                "name": "pricing",
+                "description": "Pricing and packages",
+                "fields": [
+                    "price_range",
+                ],
+            },
+            {
+                "name": "services",
+                "description": "Wedding planning services",
+                "fields": [
+                    "planning_speciality",
+                    "wedding_types_covered",
+                    "services_offered",
+                    "destination_wedding_support",
+                    "decoration_styles",
+                    "cities_covered",
+                    "guest_hospitality_management",
+                    "entertainment_services",
+                ],
+            },
+        ]
     }
 }

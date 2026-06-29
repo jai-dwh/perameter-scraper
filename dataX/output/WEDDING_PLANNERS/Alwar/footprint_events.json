@@ -1,0 +1,51 @@
+{
+  "website": "",
+  "instagram": "@fp_events",
+  "facebook": "Footprint Events",
+  "google_business": "",
+  "phone": "8047819470",
+  "email": "",
+  "price_range": "₹1,00,000 per day (Service/Event Management fee)",
+  "rating": "",
+  "review_count": "",
+  "planning_speciality": [],
+  "wedding_types_covered": [
+    "Destination wedding"
+  ],
+  "services_offered": [
+    "Full event production",
+    "Design services"
+  ],
+  "destination_wedding_support": "",
+  "decoration_styles": [],
+  "cities_covered": [
+    "Alwar",
+    "Jaipur",
+    "Delhi/NCR"
+  ],
+  "guest_hospitality_management": [],
+  "entertainment_services": [],
+  "sources": [
+    {
+      "type": "Website",
+      "value": "Not Found",
+      "evidence": "The official bio states: \"DELHI | JAIPUR | ALWAR | JIM CORBETT. WE DESIGN! WE PLAN! WE EXECUTE!\", while no direct website was accessible."
+    },
+    {
+      "type": "Instagram",
+      "value": "@fp_events",
+      "evidence": "The official bio states: \"DELHI | JAIPUR | ALWAR | JIM CORBETT. WE DESIGN! WE PLAN! WE EXECUTE!\", and the Instagram handle confirms active communication."
+    },
+    {
+      "type": "Facebook",
+      "value": "Footprint Events",
+      "evidence": "The page features event tags and photos documenting destination weddings held in Alwar, such as at \"The Fern Alwar Sariska\" and \"Alwar Motel & Resorts\", while no direct website was accessible."
+    },
+    {
+      "type": "Google Business Profile",
+      "value": "Not Found",
+      "evidence": "Third-party aggregators mention local operations under 'Footprint Eventsff', an official or verified standalone Google Business Profile was not directly accessible within the requested exclusion parameters."
+    }
+  ],
+  "address": "Kabir Colony, Behind Ganga Lehri Pansai, Alwar, Rajasthan - 301001"
+}

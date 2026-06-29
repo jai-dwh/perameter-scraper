@@ -3,7 +3,10 @@ import re
 from pathlib import Path
 
 from scraper.scraper import ask_google_ai
-from scraper.query_builder import build_search_query
+from scraper.query_builder import (
+    build_profile_query,
+    build_services_query,
+)
 from models.search_models import SEARCH_MODELS
 from models.json_models import JSON_MODELS
 from config.settings import API_KEY, CATEGORY_NAME
@@ -83,72 +86,14 @@ for vendor in vendors:
 
     category_display = get_category_display_name(CATEGORY_NAME)
 
-    combined_parts = []
-
-    for group in model["search_groups"]:
-
-        query = build_search_query(
-            vendor_name=vendor_name,
-            city=city,
-            category=category_display,
-            search_group=group,
-        )
-
-        logger.info(
-            "Running %s search for %s",
-            group["name"],
-            vendor_name,
-        )
-
-        response = ask_google_ai(query)
-
-        text = (
-            response.get("answer")
-            if response.get("success")
-            else ""
-        )
-
-        if text:
-
-            combined_parts.append(
-                f"""
-    ================ {group['name'].upper()} ================
-
-    {text}
-    """.strip()
-            )
-
-        else:
-
-            logger.warning(
-                "%s search failed for %s",
-                group["name"],
-                vendor_name,
-            )
-
-    # ------------------------------------------------------------------
-    # COMBINED RAW TEXT
-    # ------------------------------------------------------------------
-
-    combined_text = "\n\n".join(combined_parts)
-
-    # ------------------------------------------------------------------
-    # SAVE RAW TEXT
-    # ------------------------------------------------------------------
-
     text_dir = Path("data/extracted_text") / CATEGORY_NAME / city
     text_dir.mkdir(parents=True, exist_ok=True)
 
     raw_text_file = text_dir / f"{safe_filename(vendor_name)}.txt"
+    combined_text = None
+    with open(raw_text_file, "r", encoding="utf-8") as f:
+        combined_text = f.read()
 
-    with raw_text_file.open("w", encoding="utf-8") as f:
-        f.write(combined_text)
-
-    logger.info(
-        "Saved combined raw text for %s to %s",
-        vendor_name,
-        raw_text_file,
-    )
 
     # ------------------------------------------------------------------
     # GEMINI ENRICHMENT

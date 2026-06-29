@@ -178,7 +178,7 @@ class GoogleAIModeScraper:
             self.log(f"✗ Failed to setup driver: {e}", "ERROR")
             raise
 
-    def human_delay(self, min_sec=1, max_sec=3):
+    def human_delay(self, min_sec=0.1, max_sec=0.3):
         """Random human-like delay"""
         delay = random.uniform(min_sec, max_sec)
         time.sleep(delay)
@@ -354,12 +354,12 @@ class GoogleAIModeScraper:
             self.log(f"🤖 Asking AI Mode: '{question}'")
             # Navigate directly to AI Mode page
             self.driver.get(self._ai_mode_url())
-            self.human_delay(4, 6)
+            self.human_delay()
 
             self._handle_cookies()
 
             # EXTENDED wait before looking for input
-            self.human_delay(2, 3)
+            self.human_delay(0.5, 1)
 
             # Find the "Ask anything" input box
             self.log("Looking for AI Mode input box...")
@@ -372,7 +372,7 @@ class GoogleAIModeScraper:
                 "//div[@role='combobox']//input",
                 "//*[@contenteditable='true']",
                 "//textarea",  # Broader fallback
-            ]
+            ]   
 
             search_input = self._find_search_input(input_selectors)
 

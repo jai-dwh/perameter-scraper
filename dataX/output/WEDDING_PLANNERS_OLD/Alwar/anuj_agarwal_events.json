@@ -1,0 +1,34 @@
+{
+  "website": "",
+  "instagram": "@aanuj_events",
+  "facebook": "",
+  "google_business": "",
+  "phone": "",
+  "email": "",
+  "price_range": "",
+  "rating": "",
+  "review_count": "",
+  "planning_speciality": [],
+  "wedding_types_covered": [],
+  "services_offered": [],
+  "destination_wedding_support": "",
+  "decoration_styles": [],
+  "cities_covered": [],
+  "guest_hospitality_management": [],
+  "entertainment_services": [],
+  "sources": [
+    {
+      "source_type": "Instagram",
+      "value_found": "@aanuj_events",
+      "supporting_evidence": "The vendor does not host a standalone official website. They handle bookings and display portfolios directly through public social media channels.",
+      "url": "N/A"
+    },
+    {
+      "source_type": "Google Business Profile",
+      "value_found": "",
+      "supporting_evidence": "A verified, standalone Google Business Profile explicitly mapping 'Anuj Agarwal Events' to an Alwar office could not be isolated outside of regional directories.",
+      "url": "N/A"
+    }
+  ],
+  "address": ""
+}
