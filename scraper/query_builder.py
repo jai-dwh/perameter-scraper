@@ -51,6 +51,7 @@ def build_search_query(
         3. Instagram Posts
         4. Facebook Posts
         5. Wedding Blogs
+        6. any other listing website
         """)
 
     elif search_group["name"] == "reviews":

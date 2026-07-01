@@ -73,6 +73,9 @@ class GoogleAIModeScraper:
     def setup_driver(self):
         """Setup Chrome driver with ENHANCED stealth options for headless"""
         chrome_options = Options()
+        PROXY = "socks5://127.0.0.1:9050"
+
+        chrome_options.add_argument(f"--proxy-server={PROXY}")
 
         if self.headless:
             LOG_BROWSER_DIR.mkdir(parents=True, exist_ok=True)
